@@ -1,0 +1,10 @@
+{% extends "links/base.html" %}
+{% block content %}
+<h2>Stats for {{ link.code }}</h2>
+<table>
+  <tr><td>Short link</td><td><a href="{{ short_url }}">{{ short_url }}</a></td></tr>
+  <tr><td>Original URL</td><td>{{ link.long_url }}</td></tr>
+  <tr><td>Created at</td><td>{{ link.created_at }}</td></tr>
+  <tr><td>Total visits</td><td>{{ link.visits }}</td></tr>
+</table>
+{% endblock %}
