@@ -1,121 +1,119 @@
-# URL Shortener (Django)
+# URL Shortener
 
-Paste a long URL, get a short link. Visiting the short link sends you to the original page. Each link has a stats page (creation time and total visits).
+This is my Django project for Task 2. You paste a long link and the site gives you a short link. When someone opens the short link, it takes them to the original page. Each link also has a stats page that shows when it was created and how many times it was visited.
 
-Pages:
-- `/` : form to create a short link
-- `/<code>/` : redirect to the original URL
-- `/stats/<code>/` : stats for the link
+Live site: http://3.25.166.46
 
-Design choices are explained in [design_notes.md](design_notes.md).
+GitHub: https://github.com/aniruddhanaikade-stack/CSA-BACKEND-TASK-2
 
-## 1. Run locally (no Docker)
+## Pages
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+- `/` : form to make a short link
+- `/<code>/` : goes to the original link
+- `/stats/<code>/` : shows creation time and total visits
+
+My design choices are written in `design_notes.md`.
+
+## Running on my computer
+
+I used Windows so I typed `python`. On Mac or Linux it is `python3`.
+
+```
+python -m pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000
+Then open http://127.0.0.1:8000
 
-## 2. Run the tests
+## Tests
 
-```bash
+```
 python manage.py test tests -v 2
 ```
 
-The tests cover: a normal flow, bad URLs, unknown codes, a database failure, duplicate URLs, unique codes, a code clash, and data surviving a restart.
+The tests check a normal flow, wrong URLs, a short code that does not exist, a database error, the same URL sent twice, different URLs getting different codes, a code clash, and data still being there after a restart.
 
-## 3. Run with Docker
+## Docker
 
-```bash
-cp .env.example .env        # then edit .env (see below)
+```
+copy .env.example .env
 docker compose up -d --build
 ```
 
-Open http://localhost (port 80).
+On Mac or Linux use `cp` instead of `copy`. Open the `.env` file and set these values first:
 
-Useful commands:
+- `SECRET_KEY` : a long random text
+- `DEBUG` : keep it `False`
+- `ALLOWED_HOSTS` : the IP or domain you use to open the site, like `localhost,127.0.0.1`
 
-```bash
-docker compose ps           # is it running?
-docker compose logs -f      # see logs
-docker compose restart      # restart
-docker compose down         # stop and remove the container (data is kept)
-docker compose up -d        # start again
-```
+Then open http://localhost
 
-Your data lives in the Docker volume `shortener_data`, so it stays after `down` and `up`. Do NOT run `docker compose down -v`, because `-v` deletes the volume.
+The database is saved in a Docker volume called `shortener_data`. So the links and visit counts are still there after the container is stopped, removed and started again. I did not use `docker compose down -v` because `-v` deletes the volume and all the data.
 
-### The .env file
+## Deploying on AWS EC2
 
-| Name | Meaning |
-|------|---------|
-| `SECRET_KEY` | A long random string. Make one with: `python3 -c "import secrets; print(secrets.token_urlsafe(50))"` |
-| `DEBUG` | Keep `False` on a server |
-| `ALLOWED_HOSTS` | Comma separated list of your IP/domain, e.g. `localhost,127.0.0.1,3.110.10.20` |
-
-## 4. Deploy on AWS EC2
-
-1. **Launch an instance.** In the AWS console go to EC2 > Launch instance. Choose Ubuntu 24.04, type `t2.micro` or `t3.micro` (free tier), and create a key pair (download the `.pem` file).
-2. **Security group (firewall).** Allow only:
-   - SSH (22) from **My IP** only (not 0.0.0.0/0)
-   - HTTP (80) from Anywhere
-   Do not open any other port.
-3. **Storage.** The default 8 GB disk is fine. The database is in a Docker volume on this disk.
-4. **Connect:**
-   ```bash
-   chmod 400 mykey.pem
-   ssh -i mykey.pem ubuntu@<PUBLIC_IP>
+1. I created an EC2 instance in the Sydney region with Ubuntu and type t3.micro using my free AWS credits. I also made a key pair and downloaded the `.pem` file.
+2. In the security group I allowed only SSH (port 22) from my own IP and HTTP (port 80) from the internet. No other ports are open.
+3. I connected to the server from PowerShell:
    ```
-5. **Install Docker (on the server):**
-   ```bash
-   sudo apt update
-   sudo apt install -y docker.io docker-compose-v2 git
-   sudo usermod -aG docker ubuntu
+   ssh -i C:\Users\Admin\mykey.pem ubuntu@3.25.166.46
    ```
-   Log out and log in again so the group change works.
-6. **Get the code:**
-   ```bash
-   git clone <YOUR_REPO_URL> shortener
-   cd shortener
+4. I installed Docker and git on the server:
    ```
-7. **Set secrets:**
-   ```bash
-   cp .env.example .env
-   nano .env
+   sudo apt update && sudo apt install -y docker.io docker-compose-v2 git
    ```
-   Set a new `SECRET_KEY`, keep `DEBUG=False`, and set `ALLOWED_HOSTS=<PUBLIC_IP>`.
-   The `.env` file stays only on the server and is never committed to git.
-8. **Start:**
-   ```bash
-   docker compose up -d --build
+5. I downloaded my code from GitHub:
    ```
-9. **Check:** open `http://<PUBLIC_IP>` in your browser.
+   git clone https://github.com/aniruddhanaikade-stack/CSA-BACKEND-TASK-2.git
+   cd CSA-BACKEND-TASK-2
+   ```
+6. I made the `.env` file on the server with a new `SECRET_KEY`, `DEBUG=False` and `ALLOWED_HOSTS` set to my public IP. This file is only on the server and is not on GitHub.
+   ```
+   IP=$(curl -s https://checkip.amazonaws.com)
+   echo "SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" > .env
+   echo "DEBUG=False" >> .env
+   echo "ALLOWED_HOSTS=$IP,localhost" >> .env
+   ```
+7. I started the app:
+   ```
+   sudo docker compose up -d --build
+   ```
+8. I opened http://3.25.166.46 in the browser and the site was working.
 
-### Start / restart
-
-- `restart: unless-stopped` in `docker-compose.yml` brings the app back after a server reboot.
-- Restart by hand: `docker compose restart`
-- Update after code changes: `git pull && docker compose up -d --build`
-
-### Evidence that it works
-
-Add here after deploying:
-- Deployed link: `http://<PUBLIC_IP>`
-- Screenshots: create page, short link redirect, stats page
-- Restart proof: note the visit count, run `docker compose down && docker compose up -d`, and show the count is the same.
-
-## Project files
+Commands to manage the app on the server:
 
 ```
-config/            settings, main urls
-links/             models, views, urls, templates, migrations
-tests/             automated tests
-Dockerfile         builds the image
-docker-compose.yml runs it with a data volume
-design_notes.md    design explanation
+sudo docker compose ps
+sudo docker compose logs
+sudo docker compose restart
 ```
+
+To update the app after changing the code I run `git pull` and then `sudo docker compose up -d --build`. The app starts again by itself if the server reboots because of `restart: unless-stopped` in `docker-compose.yml`.
+
+## Screenshots
+
+Home page with a short link:
+
+![home page](screenshots/home.png)
+
+Stats page:
+
+![stats page](screenshots/stats.png)
+
+Stats page after restarting the app:
+
+![stats after restart](screenshots/after_restart.png)
+
+AWS security group:
+
+![security group](screenshots/security_group.png)
+
+## Restart test
+
+I opened a short link a few times and noted the visit count on the stats page. Then I ran `sudo docker compose restart` on the server. After the restart the stats page showed the same count, so the data is not lost.
+
+## Problems I faced
+
+- On Windows `pip` was not recognized, so I used `python -m pip` instead.
+- My `.pem` key file was in the Downloads folder, so I copied it to `C:\Users\Admin\mykey.pem` before `ssh` could find it.
